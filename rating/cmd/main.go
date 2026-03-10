@@ -5,14 +5,17 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
+	"net"
 	"time"
 
+	"github.com/tj330/bookapp/gen"
 	"github.com/tj330/bookapp/pkg/discovery"
 	"github.com/tj330/bookapp/pkg/discovery/consul"
 	"github.com/tj330/bookapp/rating/internal/controller/rating"
-	httphandler "github.com/tj330/bookapp/rating/internal/handler/http"
+	grpcphandler "github.com/tj330/bookapp/rating/internal/handler/grpc"
+	"github.com/tj330/bookapp/rating/internal/ingester/kafka"
 	"github.com/tj330/bookapp/rating/internal/repository/memory"
+	"google.golang.org/grpc"
 )
 
 const serviceName = "rating"
@@ -31,6 +34,7 @@ func main() {
 	if err := registry.Register(ctx, instanceID, serviceName, fmt.Sprintf("localhost:%d", port)); err != nil {
 		panic(err)
 	}
+
 	go func() {
 		for {
 			if err := registry.ReportHealthyState(instanceID, serviceName); err != nil {
@@ -39,14 +43,28 @@ func main() {
 			time.Sleep(1 * time.Second)
 		}
 	}()
+
 	defer registry.Deregister(ctx, instanceID, serviceName)
 
-	repo := memory.New()
-	ctrl := rating.New(repo)
-	h := httphandler.New(ctrl)
+	ingester, err := kafka.NewIngester("localhost", "rating", "ratings")
+	if err != nil {
+		log.Fatalf("failed to initialize ingester: %v", err)
+	}
 
-	http.Handle("/rating", http.HandlerFunc(h.Handle))
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
+	repo := memory.New()
+	ctrl := rating.New(repo, ingester)
+	if err := ctrl.StartIngestion(ctx); err != nil {
+		log.Fatalf("failed to start ingestion: %v", err)
+	}
+	h := grpcphandler.New(ctrl)
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	srv := grpc.NewServer()
+	gen.RegisterRatingServiceServer(srv, h)
+
+	if err := srv.Serve(lis); err != nil {
 		panic(err)
 	}
 }

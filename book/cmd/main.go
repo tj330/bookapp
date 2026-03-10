@@ -5,15 +5,17 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
+	"net"
 	"time"
 
 	"github.com/tj330/bookapp/book/internal/controller/book"
 	metadataGateway "github.com/tj330/bookapp/book/internal/gateway/metadata/http"
 	ratingGateway "github.com/tj330/bookapp/book/internal/gateway/rating/http"
-	httphandler "github.com/tj330/bookapp/book/internal/handler/http"
+	grpchandler "github.com/tj330/bookapp/book/internal/handler/grpc"
+	"github.com/tj330/bookapp/gen"
 	"github.com/tj330/bookapp/pkg/discovery"
 	"github.com/tj330/bookapp/pkg/discovery/consul"
+	"google.golang.org/grpc"
 )
 
 const serviceName = "book"
@@ -42,13 +44,14 @@ func main() {
 	}()
 	defer registry.Deregister(ctx, instanceID, serviceName)
 
-	log.Println("Starting the book service")
 	metadataGateway := metadataGateway.New(registry)
 	ratingGateway := ratingGateway.New(registry)
 	ctrl := book.New(ratingGateway, metadataGateway)
-	h := httphandler.New(ctrl)
-	http.Handle("/book", http.HandlerFunc(h.GetBookDetails))
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
+	h := grpchandler.New(ctrl)
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	srv := grpc.NewServer()
+	gen.RegisterBookServiceServer(srv, h)
+	if err := srv.Serve(lis); err != nil {
 		panic(err)
 	}
 }
