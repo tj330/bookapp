@@ -16,7 +16,7 @@ type Rating struct {
 	RecordID   RecordID    `json:"recordId"`
 	RecordType RecordType  `json:"recordType"`
 	UserID     UserID      `json:"userId"`
-	Value      RatingValue `json:"ratingValue"`
+	Value      RatingValue `json:"value"`
 }
 
 type RatingEventType string

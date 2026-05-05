@@ -7,18 +7,21 @@ import (
 	"github.com/tj330/bookapp/internal/grpcutil"
 	"github.com/tj330/bookapp/metadata/pkg/model"
 	"github.com/tj330/bookapp/pkg/discovery"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Gateway struct {
 	registry discovery.Registry
+	creds    credentials.TransportCredentials
 }
 
-func New(registry discovery.Registry) *Gateway {
-	return &Gateway{registry: registry}
+func New(registry discovery.Registry, creds credentials.TransportCredentials) *Gateway {
+	return &Gateway{registry: registry, creds: creds}
 }
 
 func (g *Gateway) Get(ctx context.Context, id string) (*model.Metadata, error) {
-	conn, err := grpcutil.ServiceConnection(ctx, "metadata", g.registry)
+	conn, err := grpcutil.ServiceConnection(ctx, "metadata", g.registry, insecure.NewCredentials())
 	if err != nil {
 		return nil, err
 	}

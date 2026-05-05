@@ -20,7 +20,7 @@ func New(ctrl *book.Controller) *Handler {
 	return &Handler{ctrl: ctrl}
 }
 
-func (h *Handler) GetMovieDetails(ctx context.Context, req *gen.GetBookDetailsRequest) (*gen.GetBookDetailsResponse, error) {
+func (h *Handler) GetBookDetails(ctx context.Context, req *gen.GetBookDetailsRequest) (*gen.GetBookDetailsResponse, error) {
 	if req == nil || req.BookId == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "nil req or empty id")
 	}

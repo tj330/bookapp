@@ -14,7 +14,6 @@ var ErrNotFound = errors.New("book metadata not found")
 
 type ratingGateway interface {
 	GetAggregatedRating(ctx context.Context, recordId ratingmodel.RecordID, recordType ratingmodel.RecordType) (float64, error)
-	PutRating(ctx context.Context, recordId ratingmodel.RecordID, recordType ratingmodel.RecordType, rating *ratingmodel.Rating) error
 }
 
 type metadatGateway interface {

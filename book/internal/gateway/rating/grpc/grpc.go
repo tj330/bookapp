@@ -7,6 +7,7 @@ import (
 	"github.com/tj330/bookapp/internal/grpcutil"
 	"github.com/tj330/bookapp/pkg/discovery"
 	"github.com/tj330/bookapp/rating/pkg/model"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Gateway struct {
@@ -18,7 +19,7 @@ func New(registry discovery.Registry) *Gateway {
 }
 
 func (g *Gateway) GetAggregatedRating(ctx context.Context, recordID model.RecordID, recordType model.RecordType) (float64, error) {
-	conn, err := grpcutil.ServiceConnection(ctx, "rating", g.registry)
+	conn, err := grpcutil.ServiceConnection(ctx, "rating", g.registry, insecure.NewCredentials())
 	if err != nil {
 		return 0, err
 	}
