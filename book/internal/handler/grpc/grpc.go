@@ -30,10 +30,13 @@ func (h *Handler) GetBookDetails(ctx context.Context, req *gen.GetBookDetailsReq
 	} else if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &gen.GetBookDetailsResponse{
+	details := &gen.GetBookDetailsResponse{
 		BookDetails: &gen.BookDetails{
 			Metadata: model.MetadataToProto(&m.Metadata),
-			Rating:   *m.Rating,
 		},
-	}, nil
+	}
+	if m.Rating != nil {
+		details.BookDetails.Rating = *m.Rating
+	}
+	return details, nil
 }

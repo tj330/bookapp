@@ -26,10 +26,11 @@ func New(repo ratingRepository, ingester ratingIngester) *Controller {
 
 func (c *Controller) GetAggregatedRating(ctx context.Context, recordId model.RecordID, recordtype model.RecordType) (float64, error) {
 	ratings, err := c.repo.Get(ctx, recordId, recordtype)
-	if err != nil && errors.Is(err, ErrNotFound) {
+	if err != nil {
+		return 0, err
+	}
+	if len(ratings) == 0 {
 		return 0, ErrNotFound
-	} else if err != nil {
-		return 0, nil
 	}
 
 	sum := float64(0)

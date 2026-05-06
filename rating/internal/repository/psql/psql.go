@@ -43,6 +43,9 @@ func (r *Repository) Get(ctx context.Context, recordID model.RecordID, recordTyp
 			Value:  model.RatingValue(value),
 		})
 	}
+	if res == nil {
+		res = []model.Rating{}
+	}
 	return res, nil
 }
 

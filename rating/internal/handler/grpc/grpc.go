@@ -37,6 +37,9 @@ func (h *Handler) PutRating(ctx context.Context, req *gen.PutRatingRequest) (*ge
 	if req == nil || req.RecordId == "" || req.UserId == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "nil rq or empty record id or user id")
 	}
+	if req.RatingValue < 1 || req.RatingValue > 5 {
+		return nil, status.Errorf(codes.InvalidArgument, "rating value must be between 1 and 5")
+	}
 	if err := h.ctrl.PutRating(ctx, model.RecordID(req.RecordId), model.RecordType(req.RecordType), &model.Rating{UserID: model.UserID(req.UserId), Value: model.RatingValue(req.RatingValue)}); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
