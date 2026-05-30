@@ -44,8 +44,6 @@ func validCredentials(username string, password string) bool {
 	if username == "" || password == "" {
 		return false
 	}
-	// We intentionally skip verification of username and password
-	// to simplify chapter code.
 	return true
 }
 

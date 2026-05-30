@@ -54,7 +54,6 @@ func (r *Repository) Put(ctx context.Context, recordID model.RecordID, recordTyp
 		return errors.New("rating is nil")
 	}
 
-	// Step 1: Try UPDATE
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE ratings
 		SET value = $1
@@ -69,7 +68,6 @@ func (r *Repository) Put(ctx context.Context, recordID model.RecordID, recordTyp
 		return err
 	}
 
-	// Step 2: If no rows updated → INSERT
 	if rowsAffected == 0 {
 		_, err = r.db.ExecContext(ctx, `
 			INSERT INTO ratings (record_id, record_type, user_id, value)

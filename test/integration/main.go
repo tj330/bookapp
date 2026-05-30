@@ -15,6 +15,7 @@ import (
 	ratingtest "github.com/tj330/bookapp/rating/pkg/testutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	grpcmetadata "google.golang.org/grpc/metadata"
 )
 
 const (
@@ -63,6 +64,27 @@ func main() {
 	defer bookConn.Close()
 	bookClient := gen.NewBookServiceClient(bookConn)
 
+	authConn, err := grpc.NewClient("localhost:8084", opts)
+	if err != nil {
+		panic(err)
+	}
+	defer authConn.Close()
+
+	authClient := gen.NewAuthServiceClient(authConn)
+
+	tokenResp, err := authClient.GetToken(ctx, &gen.GetTokenRequest{
+		Username: "user0",
+		Password: "password",
+	})
+	if err != nil {
+		log.Fatalf("get auth token: %v", err)
+	}
+
+	authCtx := grpcmetadata.NewOutgoingContext(
+		ctx,
+		grpcmetadata.Pairs("authorization", "Bearer "+tokenResp.Token),
+	)
+
 	log.Println("Saving test metada via metadata service")
 
 	m := &gen.Metadata{
@@ -73,7 +95,7 @@ func main() {
 		Isbn:        "123456789101",
 	}
 
-	if _, err := metadataClient.PutMetadata(ctx, &gen.PutMetadataRequest{Metadata: m}); err != nil {
+	if _, err := metadataClient.PutMetadata(authCtx, &gen.PutMetadataRequest{Metadata: m}); err != nil {
 		log.Fatalf("put metadata: %v", err)
 	}
 
@@ -107,7 +129,7 @@ func main() {
 	const recordTypeBook = "book"
 	firstRating := int32(5)
 
-	if _, err := ratingClient.PutRating(ctx, &gen.PutRatingRequest{UserId: userID, RecordId: m.Id, RecordType: recordTypeBook, RatingValue: firstRating}); err != nil {
+	if _, err := ratingClient.PutRating(authCtx, &gen.PutRatingRequest{UserId: userID, RecordId: m.Id, RecordType: recordTypeBook, RatingValue: firstRating}); err != nil {
 		log.Fatalf("put rating: %v", err)
 	}
 
@@ -126,7 +148,7 @@ func main() {
 
 	secondRating := int32(1)
 
-	if _, err := ratingClient.PutRating(ctx, &gen.PutRatingRequest{UserId: userID, RecordId: m.Id, RecordType: recordTypeBook, RatingValue: secondRating}); err != nil {
+	if _, err := ratingClient.PutRating(authCtx, &gen.PutRatingRequest{UserId: userID, RecordId: m.Id, RecordType: recordTypeBook, RatingValue: secondRating}); err != nil {
 		log.Fatalf("put rating: %v", err)
 	}
 

@@ -24,12 +24,14 @@ func (h *Handler) GetBookDetails(ctx context.Context, req *gen.GetBookDetailsReq
 	if req == nil || req.BookId == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "nil req or empty id")
 	}
+
 	m, err := h.ctrl.Get(ctx, req.BookId)
 	if err != nil && errors.Is(err, book.ErrNotFound) {
 		return nil, status.Error(codes.NotFound, err.Error())
 	} else if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+
 	details := &gen.GetBookDetailsResponse{
 		BookDetails: &gen.BookDetails{
 			Metadata: model.MetadataToProto(&m.Metadata),

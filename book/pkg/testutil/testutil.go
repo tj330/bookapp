@@ -12,7 +12,7 @@ import (
 
 func NewTestBookGRPCServer(registry discovery.Registry) gen.BookServiceServer {
 	metadataGateway := metadatagateway.New(registry, insecure.NewCredentials())
-	ratingGateway := ratinggateway.New(registry)
+	ratingGateway := ratinggateway.New(registry, insecure.NewCredentials())
 	ctrl := book.New(ratingGateway, metadataGateway)
 	return grpchandler.New(ctrl)
 }

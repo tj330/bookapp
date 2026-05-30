@@ -4,3 +4,5 @@ serviceDiscovery:
   consul:
     address: localhost:8500
     #address: http://consul-server.consul.svc.cluster.local:8500
+jaeger:
+  url: localhost:4317

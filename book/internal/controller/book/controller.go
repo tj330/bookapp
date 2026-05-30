@@ -3,6 +3,8 @@ package book
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sync"
 
 	"github.com/tj330/bookapp/book/internal/gateway"
 	"github.com/tj330/bookapp/book/pkg/model"
@@ -16,34 +18,57 @@ type ratingGateway interface {
 	GetAggregatedRating(ctx context.Context, recordId ratingmodel.RecordID, recordType ratingmodel.RecordType) (float64, error)
 }
 
-type metadatGateway interface {
+type metadataGateway interface {
 	Get(ctx context.Context, id string) (*metadatamodel.Metadata, error)
 }
 
 type Controller struct {
 	ratingGateway
-	metadatGateway
+	metadataGateway
 }
 
-func New(ratingGateway ratingGateway, metadatGateway metadatGateway) *Controller {
+func New(ratingGateway ratingGateway, metadatGateway metadataGateway) *Controller {
 	return &Controller{ratingGateway, metadatGateway}
 }
 
 func (c *Controller) Get(ctx context.Context, id string) (*model.BookDetails, error) {
-	metadata, err := c.metadatGateway.Get(ctx, id)
-	if err != nil && errors.Is(gateway.ErrNotFound, err) {
-		return nil, ErrNotFound
-	} else if err != nil {
-		return nil, err
-	}
-	details := &model.BookDetails{Metadata: *metadata}
-	rating, err := c.ratingGateway.GetAggregatedRating(ctx, ratingmodel.RecordID(id), ratingmodel.RecordTypeBook)
-	if errors.Is(gateway.ErrNotFound, err) {
+	var wg sync.WaitGroup
+	wg.Add(2)
+	var metadata *metadatamodel.Metadata
+	var getMetadaErr error
+	var rating float64
+	var getRatingErr error
 
-	} else if err != nil {
-		return nil, err
-	} else {
-		details.Rating = &rating
+	go func() {
+		defer wg.Done()
+		metadata, getMetadaErr = c.metadataGateway.Get(ctx, id)
+	}()
+	go func() {
+		defer wg.Done()
+		rating, getRatingErr = c.ratingGateway.GetAggregatedRating(ctx, ratingmodel.RecordID(id), ratingmodel.RecordTypeBook)
+	}()
+	wg.Wait()
+
+	if getMetadaErr != nil {
+		if errors.Is(getMetadaErr, gateway.ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, getMetadaErr
 	}
-	return details, err
+
+	if metadata == nil {
+		return nil, fmt.Errorf("metadata gateway returned no data and no error")
+	}
+
+	details := &model.BookDetails{Metadata: *metadata}
+
+	if getRatingErr != nil {
+		if errors.Is(getRatingErr, gateway.ErrNotFound) {
+			return details, nil
+		}
+		return nil, getRatingErr
+	}
+	details.Rating = &rating
+
+	return details, nil
 }
