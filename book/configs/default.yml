@@ -6,3 +6,5 @@ serviceDiscovery:
     #address: http://consul-server.consul.svc.cluster.local:8500
 jaeger:
   url: localhost:4317
+prometheus:
+  metricsPort: 8093

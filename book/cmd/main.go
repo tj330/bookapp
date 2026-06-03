@@ -5,12 +5,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"log"
 	"net"
+	"net/http"
 	"os"
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/ratelimit"
+	"github.com/m3db/prometheus_client_golang/prometheus/promhttp"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tj330/bookapp/book/internal/controller/book"
 	metadataGateway "github.com/tj330/bookapp/book/internal/gateway/metadata/grpc"
 	ratingGateway "github.com/tj330/bookapp/book/internal/gateway/rating/grpc"
@@ -42,7 +44,7 @@ func main() {
 		panic(err)
 	}
 	port := cfg.API.Port
-	log.Printf("Starting the book service on port %d", port)
+	logger.Info("Starting the book service", zap.Int("port", port))
 	registry, err := consul.NewRegistry(cfg.ServiceDiscovery.Consul.Address)
 	if err != nil {
 		panic(err)
@@ -50,8 +52,11 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	logger.Info("Jaeger configured",
+		zap.String("endpoint", cfg.Jaeger.URL),
+	)
+
 	tp, err := tracing.NewJaegerProvider(cfg.Jaeger.URL, serviceName)
-	fmt.Printf("Jaeger URL = %q\n", cfg.Jaeger.URL)
 	if err != nil {
 		logger.Fatal("Failed to initialize Jaeger provider", zap.Error(err))
 	}
@@ -63,6 +68,34 @@ func main() {
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 
+	serviceStartedCounter := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "service_started_total",
+			Help: "Number of times the service started",
+		},
+		[]string{"service"},
+	)
+
+	prometheus.MustRegister(serviceStartedCounter)
+
+	http.Handle("/metrics", promhttp.Handler())
+
+	go func() {
+		if err := http.ListenAndServe(
+			fmt.Sprintf(":%d", cfg.Prometheus.MetricsPort),
+			nil,
+		); err != nil {
+			logger.Fatal(
+				"Failed to start metrics handler",
+				zap.Error(err),
+			)
+		}
+	}()
+
+	serviceStartedCounter.
+		WithLabelValues(serviceName).
+		Inc()
+
 	instanceID := discovery.GenerateInstanceID(serviceName)
 	if err := registry.Register(ctx, instanceID, serviceName, fmt.Sprintf("book:%d", port)); err != nil {
 		panic(err)
@@ -70,7 +103,7 @@ func main() {
 	go func() {
 		for {
 			if err := registry.ReportHealthyState(instanceID, serviceName); err != nil {
-				log.Println("Failed to report healthy state: " + err.Error())
+				logger.Error("Failed to report healthy state", zap.Error(err))
 			}
 			time.Sleep(1 * time.Second)
 		}
@@ -79,15 +112,15 @@ func main() {
 
 	certBytes, err := os.ReadFile("server.crt")
 	if err != nil {
-		log.Fatalf("failed to read the server certificate: %v", err)
+		logger.Fatal("Failed to read the server certificate", zap.Error(err))
 	}
 	certPool := x509.NewCertPool()
 	if !certPool.AppendCertsFromPEM(certBytes) {
-		log.Fatalf("failed to append server certificate to pool")
+		logger.Fatal("Failed to append server certificate to pool")
 	}
 	cert, err := tls.LoadX509KeyPair("server.crt", "server.key")
 	if err != nil {
-		log.Fatalf("failed to load key pair: %v", err)
+		logger.Fatal("Failed to load key pair", zap.Error(err))
 	}
 	creds := credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}})
 	metadataGateway := metadataGateway.New(registry, creds)
@@ -97,6 +130,10 @@ func main() {
 	ctrl := book.New(ratingGateway, metadataGateway)
 	h := grpchandler.New(ctrl)
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		logger.Fatal("Failed to listen", zap.Error(err))
+	}
+
 	const limit = 100
 	const burst = 100
 	l := newLimiter(100, 100)
@@ -113,9 +150,7 @@ func main() {
 	}
 
 	srv := grpc.NewServer(opts...)
-	// srv := grpc.NewServer(
-	// 	grpc.Creds(creds),
-	// )
+
 	reflection.Register(srv)
 
 	gen.RegisterBookServiceServer(srv, h)

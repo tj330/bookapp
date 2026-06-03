@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"log"
 	"net"
+	"net/http"
 	"os"
 	"time"
 
+	"github.com/m3db/prometheus_client_golang/prometheus"
+	"github.com/m3db/prometheus_client_golang/prometheus/promhttp"
 	"github.com/tj330/bookapp/gen"
 	"github.com/tj330/bookapp/internal/authz"
 	"github.com/tj330/bookapp/internal/grpcutil"
@@ -44,13 +46,17 @@ func main() {
 	}
 	port := cfg.API.Port
 
-	log.Printf("Starting the book metadata service on port %d", port)
+	logger.Info("Starting the book metadata service", zap.Int("port", port))
 	registry, err := consul.NewRegistry(cfg.ServiceDiscovery.Consul.Addr)
 	if err != nil {
 		panic(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	logger.Info("Jaeger configured",
+		zap.String("endpoint", cfg.Jaeger.URL),
+	)
 
 	tp, err := tracing.NewJaegerProvider(cfg.Jaeger.URL, serviceName)
 	if err != nil {
@@ -64,6 +70,34 @@ func main() {
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 
+	serviceStartedCounter := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "service_started_total",
+			Help: "Number of times the service started",
+		},
+		[]string{"service"},
+	)
+
+	prometheus.MustRegister(serviceStartedCounter)
+
+	http.Handle("/metrics", promhttp.Handler())
+
+	go func() {
+		if err := http.ListenAndServe(
+			fmt.Sprintf(":%d", cfg.Prometheus.MetricsPort),
+			nil,
+		); err != nil {
+			logger.Fatal(
+				"Failed to start metrics handler",
+				zap.Error(err),
+			)
+		}
+	}()
+
+	serviceStartedCounter.
+		WithLabelValues(serviceName).
+		Inc()
+
 	instanceID := discovery.GenerateInstanceID(serviceName)
 	if err := registry.Register(ctx, instanceID, serviceName, fmt.Sprintf("metadata:%d", port)); err != nil {
 		panic(err)
@@ -71,7 +105,7 @@ func main() {
 	go func() {
 		for {
 			if err := registry.ReportHealthyState(instanceID, serviceName); err != nil {
-				log.Println("Failed to report healthy state: " + err.Error())
+				logger.Error("Failed to report healthy state", zap.Error(err))
 			}
 			time.Sleep(1 * time.Second)
 		}
@@ -85,18 +119,18 @@ func main() {
 	h := grpchandler.New(ctrl)
 	cert, err := tls.LoadX509KeyPair("server.crt", "server.key")
 	if err != nil {
-		log.Fatalf("failed to load key pair: %v", err)
+		logger.Fatal("Failed to load key pair", zap.Error(err))
 	}
 
 	creds := credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}})
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		logger.Fatal("Failed to listen", zap.Error(err))
 	}
 
 	authConn, err := grpcutil.ServiceConnection(ctx, "auth", registry, creds)
 	if err != nil {
-		log.Fatalf("failed to connect to auth service: %v", err)
+		logger.Fatal("Failed to connect to auth service", zap.Error(err))
 	}
 	defer authConn.Close()
 

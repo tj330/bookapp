@@ -1,10 +1,10 @@
 api:
-  port: 8082
+  port: 8084
 serviceDiscovery:
   consul:
-    address: localhost:8500
+    address: http://localhost:8500
     #address: http://consul-server.consul.svc.cluster.local:8500
 jaeger:
   url: localhost:4317
 prometheus:
-  metricsPort: 8092
+  metricsPort: 8094
