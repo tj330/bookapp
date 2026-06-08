@@ -10,6 +10,8 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+// ServiceConnection selects the address for a specifc service and returns a
+// gRPC connection to it.
 func ServiceConnection(ctx context.Context, serviceName string, registry discovery.Registry,
 	creds credentials.TransportCredentials) (*grpc.ClientConn, error) {
 

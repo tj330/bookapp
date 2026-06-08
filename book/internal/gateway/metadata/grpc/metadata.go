@@ -12,16 +12,23 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Gateway manages traffic by discovering services
+// and establishing secure connections to them.
 type Gateway struct {
 	registry discovery.Registry
 	creds    credentials.TransportCredentials
 }
 
+// New returns a new Gateway with the provided service discovery registry and
+// transport credentials.
 func New(registry discovery.Registry, creds credentials.TransportCredentials) *Gateway {
 	return &Gateway{registry: registry, creds: creds}
 	//return &Gateway{registry: registry}
 }
 
+// Get returns the book metadata using the book id by communicating with the metadata
+// service, retries maximum 5 times before returning if the error is any one of the
+// errors mentioned in the shouldRetry function.
 func (g *Gateway) Get(ctx context.Context, id string) (*model.Metadata, error) {
 	//conn, err := grpc.NewClient("localhost:8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
 
@@ -48,6 +55,8 @@ func (g *Gateway) Get(ctx context.Context, id string) (*model.Metadata, error) {
 	return nil, err
 }
 
+// shouldRetry returns true when the error is of type,
+// which is allowed for retry like `resource exhausted`.
 func shouldRetry(err error) bool {
 	e, ok := status.FromError(err)
 	if !ok {

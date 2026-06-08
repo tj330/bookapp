@@ -6,5 +6,7 @@ serviceDiscovery:
     #address: http://consul-server.consul.svc.cluster.local:8500
 jaeger:
   url: localhost:4317
+jwt:
+  secret: book-jwt-secret-key
 prometheus:
   metricsPort: 8094

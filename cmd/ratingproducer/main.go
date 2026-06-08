@@ -27,6 +27,7 @@ func main() {
 		panic(err)
 	}
 
+	// Producing rating events for the topic `ratings`.
 	const topic = "ratings"
 	if err := produceRatingEvents(topic, producer, ratingEvents); err != nil {
 		panic(err)
@@ -37,6 +38,8 @@ func main() {
 	producer.Flush(int(timeout.Milliseconds()))
 }
 
+// readRatingEvents reads rating events from a file and returns the
+// corresponding ratings.
 func readRatingEvents(fileName string) ([]model.RatingEvent, error) {
 	f, err := os.Open(fileName)
 	if err != nil {
@@ -49,6 +52,7 @@ func readRatingEvents(fileName string) ([]model.RatingEvent, error) {
 	return ratings, nil
 }
 
+// produceRatingEvents produces rating events for a specific kafka topic
 func produceRatingEvents(topic string, producer *kafka.Producer, events []model.RatingEvent) error {
 	for _, ratingEvent := range events {
 		encodedEvent, err := json.Marshal(ratingEvent)

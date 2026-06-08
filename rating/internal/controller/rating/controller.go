@@ -8,22 +8,28 @@ import (
 	"github.com/tj330/bookapp/rating/pkg/model"
 )
 
+// Custom error if rating is not found for a record.
 var ErrNotFound = errors.New("ratings not found for a record")
 
+// ratingRepository interface containing methods to Get and Put and rating.
 type ratingRepository interface {
 	Get(ctx context.Context, recordId model.RecordID, recordtype model.RecordType) ([]model.Rating, error)
 	Put(ctx context.Context, recordId model.RecordID, recordType model.RecordType, rating *model.Rating) error
 }
 
+// Controller handle the business logic for rating service.
 type Controller struct {
-	repo     ratingRepository
+	repo ratingRepository
+	// For asynchronous ingestion of rating events.
 	ingester ratingIngester
 }
 
+// New returns a new controller with
 func New(repo ratingRepository, ingester ratingIngester) *Controller {
 	return &Controller{repo, ingester}
 }
 
+// GetAggregatedRating returns the average rating from all of the ratings for a specific book.
 func (c *Controller) GetAggregatedRating(ctx context.Context, recordId model.RecordID, recordtype model.RecordType) (float64, error) {
 	ratings, err := c.repo.Get(ctx, recordId, recordtype)
 	if err != nil {
@@ -41,6 +47,7 @@ func (c *Controller) GetAggregatedRating(ctx context.Context, recordId model.Rec
 	return sum / float64(len(ratings)), nil
 }
 
+// PutRating is used to insert a new rating for a book.
 func (c *Controller) PutRating(ctx context.Context, recordId model.RecordID, recordType model.RecordType, rating *model.Rating) error {
 	return c.repo.Put(ctx, recordId, recordType, rating)
 }

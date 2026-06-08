@@ -9,10 +9,13 @@ import (
 	"github.com/tj330/bookapp/rating/pkg/model"
 )
 
+// Repository handles saving and reading data
+// from a sql database.
 type Repository struct {
 	db *sql.DB
 }
 
+// New returns a new Repository having a sql db connection with the configured values.
 func New() (*Repository, error) {
 	connStr := "user=admin password=secret host=localhost port=5432 dbname=book sslmode=disable"
 	db, err := sql.Open("pgx", connStr)
@@ -22,6 +25,7 @@ func New() (*Repository, error) {
 	return &Repository{db: db}, nil
 }
 
+// Get finds and returns the specific rating by using the id.
 func (r *Repository) Get(ctx context.Context, recordID model.RecordID, recordType model.RecordType) ([]model.Rating, error) {
 	rows, err := r.db.QueryContext(ctx, "SELECT user_id, value FROM ratings WHERE record_id = $1 AND record_type = $2", recordID, recordType)
 	if err != nil {
@@ -49,6 +53,7 @@ func (r *Repository) Get(ctx context.Context, recordID model.RecordID, recordTyp
 	return res, nil
 }
 
+// Put saves the new metadata value, if a specific user already has a rating for a book, updates it.
 func (r *Repository) Put(ctx context.Context, recordID model.RecordID, recordType model.RecordType, rating *model.Rating) error {
 	if rating == nil {
 		return errors.New("rating is nil")

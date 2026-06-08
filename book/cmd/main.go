@@ -38,6 +38,7 @@ func main() {
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
 
+	// Reading and extracting configured values from default.yml.
 	f, err := os.Open("default.yml")
 	var cfg config
 	if err := yaml.NewDecoder(f).Decode(&cfg); err != nil {
@@ -56,6 +57,7 @@ func main() {
 		zap.String("endpoint", cfg.Jaeger.URL),
 	)
 
+	// Setting up tracing for the service using jaeger.
 	tp, err := tracing.NewJaegerProvider(cfg.Jaeger.URL, serviceName)
 	if err != nil {
 		logger.Fatal("Failed to initialize Jaeger provider", zap.Error(err))
@@ -68,6 +70,8 @@ func main() {
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 
+	// Counter to mark the no of
+	// instance of the service.
 	serviceStartedCounter := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "service_started_total",
@@ -78,8 +82,11 @@ func main() {
 
 	prometheus.MustRegister(serviceStartedCounter)
 
+	// HTTP endpoint for exposing metrics.
 	http.Handle("/metrics", promhttp.Handler())
 
+	// Go-routine for exposing the metrics
+	// on the configured port.
 	go func() {
 		if err := http.ListenAndServe(
 			fmt.Sprintf(":%d", cfg.Prometheus.MetricsPort),
@@ -96,10 +103,12 @@ func main() {
 		WithLabelValues(serviceName).
 		Inc()
 
+	// Register the service with Consul so that other services can discover it.
 	instanceID := discovery.GenerateInstanceID(serviceName)
 	if err := registry.Register(ctx, instanceID, serviceName, fmt.Sprintf("book:%d", port)); err != nil {
 		panic(err)
 	}
+	// Go-routine to report healthy state to Consul.
 	go func() {
 		for {
 			if err := registry.ReportHealthyState(instanceID, serviceName); err != nil {
@@ -110,6 +119,7 @@ func main() {
 	}()
 	defer registry.Deregister(ctx, instanceID, serviceName)
 
+	// TODO - mTLS
 	certBytes, err := os.ReadFile("server.crt")
 	if err != nil {
 		logger.Fatal("Failed to read the server certificate", zap.Error(err))
@@ -123,21 +133,25 @@ func main() {
 		logger.Fatal("Failed to load key pair", zap.Error(err))
 	}
 	creds := credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}})
-	metadataGateway := metadataGateway.New(registry, creds)
-	//metadataGateway := metadataGateway.New(registry)
 
+	// initializing controller with metadata and rating gateway
+	metadataGateway := metadataGateway.New(registry, creds)
 	ratingGateway := ratingGateway.New(registry, creds)
 	ctrl := book.New(ratingGateway, metadataGateway)
+
 	h := grpchandler.New(ctrl)
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		logger.Fatal("Failed to listen", zap.Error(err))
 	}
 
+	// Setting up constants for timeout.
 	const limit = 100
 	const burst = 100
 	l := newLimiter(100, 100)
 
+	// gRPC server option including the interceptor for
+	// rate	limiting
 	opts := []grpc.ServerOption{
 		grpc.Creds(creds),
 		grpc.UnaryInterceptor(
@@ -153,6 +167,8 @@ func main() {
 
 	reflection.Register(srv)
 
+	// Registering auth service with the server and
+	// custom handler.
 	gen.RegisterBookServiceServer(srv, h)
 	if err := srv.Serve(lis); err != nil {
 		panic(err)

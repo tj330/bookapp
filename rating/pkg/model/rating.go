@@ -12,6 +12,7 @@ type UserID string
 
 type RatingValue int
 
+// The raw rating definition.
 type Rating struct {
 	RecordID   RecordID    `json:"recordId"`
 	RecordType RecordType  `json:"recordType"`
@@ -26,6 +27,8 @@ const (
 	RatingEventTypeDelete = RatingEventType("delete")
 )
 
+// RatingEvent consists of rating, the provider
+// it belong to and the event type.
 type RatingEvent struct {
 	Rating
 	ProviderID string          `json:"providerId"`

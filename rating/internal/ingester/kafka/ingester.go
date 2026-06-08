@@ -9,11 +9,14 @@ import (
 	"github.com/tj330/bookapp/rating/pkg/model"
 )
 
+// Ingester is used to read streamed data from kafka,
+// consists of a kafka consumer and a kafka topic.
 type Ingester struct {
 	consumer *kafka.Consumer
 	topic    string
 }
 
+// NewIngester returns a new kafks ingester for a specific `topic`.
 func NewIngester(addr string, groupID string, topic string) (*Ingester, error) {
 	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers": addr,
@@ -27,6 +30,7 @@ func NewIngester(addr string, groupID string, topic string) (*Ingester, error) {
 	return &Ingester{consumer, topic}, nil
 }
 
+// Ingest subscribes to the kafka topic and streams the events to a channel.
 func (i *Ingester) Ingest(ctx context.Context) (chan model.RatingEvent, error) {
 	fmt.Println("Starting kafka Ingester")
 	if err := i.consumer.SubscribeTopics([]string{i.topic}, nil); err != nil {

@@ -11,15 +11,20 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Handler consists of embedded generated rating service
+// server and the metadata controller.
 type Handler struct {
 	gen.UnimplementedRatingServiceServer
 	ctrl *rating.Controller
 }
 
+// New returns a new handler with the controller provided.
 func New(ctrl *rating.Controller) *Handler {
 	return &Handler{ctrl: ctrl}
 }
 
+// GetMetadata handles the get book details request by calling the controller,
+// returns metadata if there is no error.
 func (h *Handler) GetAggregatedRating(ctx context.Context, req *gen.GetAggregatedRatingRequest) (*gen.GetAggregatedRatingResponse, error) {
 	if req == nil || req.RecordId == "" || req.RecordType == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "nil req or empty id/type")
@@ -33,6 +38,7 @@ func (h *Handler) GetAggregatedRating(ctx context.Context, req *gen.GetAggregate
 	return &gen.GetAggregatedRatingResponse{RatingValue: v}, nil
 }
 
+// PutRating handles the insertion of new rating value.
 func (h *Handler) PutRating(ctx context.Context, req *gen.PutRatingRequest) (*gen.PutRatingResponse, error) {
 	if req == nil || req.RecordId == "" || req.UserId == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "nil rq or empty record id or user id")

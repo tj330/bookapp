@@ -11,15 +11,20 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Handler consists of embedded generated book service
+// server and the metadata controller.
 type Handler struct {
 	gen.UnimplementedMetadataServiceServer
 	ctrl *metadata.Controller
 }
 
+// New returns a new handler with the controller provided.
 func New(ctrl *metadata.Controller) *Handler {
 	return &Handler{ctrl: ctrl}
 }
 
+// GetMetadata handles the get book details request by calling the controller,
+// returns metadata if there is no error.
 func (h *Handler) GetMetadata(ctx context.Context, req *gen.GetMetadataRequest) (*gen.GetMetadataResponse, error) {
 	if req == nil || req.BookId == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "nil req or empty id")
@@ -33,6 +38,7 @@ func (h *Handler) GetMetadata(ctx context.Context, req *gen.GetMetadataRequest) 
 	return &gen.GetMetadataResponse{Metadata: model.MetadataToProto(m)}, nil
 }
 
+// PutMetadata handles the insertion of new metadata value.
 func (h *Handler) PutMetadata(ctx context.Context, req *gen.PutMetadataRequest) (*gen.PutMetadataResponse, error) {
 	if req == nil || req.Metadata == nil {
 		return nil, status.Errorf(codes.InvalidArgument, "nil req or metadata")

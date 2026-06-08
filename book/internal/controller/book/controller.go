@@ -12,25 +12,33 @@ import (
 	ratingmodel "github.com/tj330/bookapp/rating/pkg/model"
 )
 
+// Custom error of book without metadata.
 var ErrNotFound = errors.New("book metadata not found")
 
+// api gateway which acts as the entrypoint for the rating service.
 type ratingGateway interface {
 	GetAggregatedRating(ctx context.Context, recordId ratingmodel.RecordID, recordType ratingmodel.RecordType) (float64, error)
 }
 
+// api gateway which acts as the entrypoint for the metadata service.
 type metadataGateway interface {
 	Get(ctx context.Context, id string) (*metadatamodel.Metadata, error)
 }
 
+// Controller consisting of the rating and metadata gateways.
 type Controller struct {
 	ratingGateway
 	metadataGateway
 }
 
-func New(ratingGateway ratingGateway, metadatGateway metadataGateway) *Controller {
-	return &Controller{ratingGateway, metadatGateway}
+// New returns a new controller with the provided rating and metadata
+// gateway.
+func New(ratingGateway ratingGateway, metadataGateway metadataGateway) *Controller {
+	return &Controller{ratingGateway, metadataGateway}
 }
 
+// Get returns the details of book by making concurrent calls to the metadata and
+// rating services.
 func (c *Controller) Get(ctx context.Context, id string) (*model.BookDetails, error) {
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -63,6 +71,8 @@ func (c *Controller) Get(ctx context.Context, id string) (*model.BookDetails, er
 	details := &model.BookDetails{Metadata: *metadata}
 
 	if getRatingErr != nil {
+		// Can proceed if rating is empty because having a
+		// book without rating is allowed.
 		if errors.Is(getRatingErr, gateway.ErrNotFound) {
 			return details, nil
 		}

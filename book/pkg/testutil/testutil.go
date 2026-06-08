@@ -10,6 +10,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// NewTestBookGRPCServer returns a new BookServiceServer with the controller
+// consisting of the metadata and rating gateway.
 func NewTestBookGRPCServer(registry discovery.Registry) gen.BookServiceServer {
 	metadataGateway := metadatagateway.New(registry, insecure.NewCredentials())
 	ratingGateway := ratinggateway.New(registry, insecure.NewCredentials())

@@ -11,17 +11,27 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Dependency injection pattern so that
+// you can simply provide the secret
+// from different places like, as environment
+// variable, from a vault etc
 type SecretProvider func() []byte
 
+// Our custom handler including the secret provider
+// and the generated service struct for forward compatability
+// when we upgrade our api, missing our own custom implementation.
 type Handler struct {
 	secretProvider SecretProvider
 	gen.UnimplementedAuthServiceServer
 }
 
+// New creates a Handler with the provided secrete provider.
 func New(secretProvider SecretProvider) *Handler {
 	return &Handler{secretProvider: secretProvider}
 }
 
+// GetToken authenticates the user and returns a signed JWT containing
+// the username and issued-at timestamp.
 func (h *Handler) GetToken(ctx context.Context, req *gen.GetTokenRequest) (*gen.GetTokenResponse, error) {
 	username, password := req.Username, req.Password
 	if !validCredentials(username, password) {
@@ -40,6 +50,10 @@ func (h *Handler) GetToken(ctx context.Context, req *gen.GetTokenRequest) (*gen.
 	return &gen.GetTokenResponse{Token: tokenString}, nil
 }
 
+// validCredentials returns true if the credentials are valid.
+//
+// Simple implementation for this project now, but can be tied with
+// business logic
 func validCredentials(username string, password string) bool {
 	if username == "" || password == "" {
 		return false
@@ -47,6 +61,7 @@ func validCredentials(username string, password string) bool {
 	return true
 }
 
+// ValidateToken validates the JWT signature and extracts the username claim.
 func (h *Handler) ValidateToken(ctx context.Context, req *gen.ValidateTokenRequest) (*gen.ValidateTokenResponse, error) {
 	token, err := jwt.Parse(
 		req.Token,

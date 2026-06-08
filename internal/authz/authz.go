@@ -15,11 +15,14 @@ type contextKey string
 
 const usernameKey contextKey = "username"
 
+// UsernameFromContext returns the username of the authenticated
+// user from the context.
 func UsernameFromContext(ctx context.Context) (string, bool) {
 	username, ok := ctx.Value(usernameKey).(string)
 	return username, ok
 }
 
+// UnaryInterceptor performs the jwt authentication for the protected methods by validating the jwt token.
 func UnaryInterceptor(authClient gen.AuthServiceClient, protectedMethods map[string]bool) grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,

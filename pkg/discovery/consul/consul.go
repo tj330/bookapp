@@ -11,10 +11,14 @@ import (
 	"github.com/tj330/bookapp/pkg/discovery"
 )
 
+// Registry tracks where microservices are running
+// using a consul client.
 type Registry struct {
 	client *consul.Client
 }
 
+// NewRegistry returns a new consul registry with the
+// corresponding address and default config vaules.
 func NewRegistry(addr string) (*Registry, error) {
 	config := consul.DefaultConfig()
 	config.Address = addr
@@ -25,6 +29,7 @@ func NewRegistry(addr string) (*Registry, error) {
 	return &Registry{client: client}, nil
 }
 
+// Register adds a service to Consul using its instance id, name and address.
 func (r *Registry) Register(ctx context.Context, instanceID string, serviceName string, hostPort string) error {
 	parts := strings.Split(hostPort, ":")
 	if len(parts) != 2 {
@@ -44,10 +49,12 @@ func (r *Registry) Register(ctx context.Context, instanceID string, serviceName 
 	})
 }
 
+// Deregister removes a service from Consul using its instanceID.
 func (r *Registry) Deregister(ctx context.Context, instanceID string, _ string) error {
 	return r.client.Agent().ServiceDeregister(instanceID)
 }
 
+// ServiceAddresses finds all healthy service addresses for specific service.
 func (r *Registry) ServiceAddresses(ctx context.Context, serviceName string) ([]string, error) {
 	entries, _, err := r.client.Health().Service(serviceName, "", true, nil)
 	if err != nil {

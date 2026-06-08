@@ -1,5 +1,6 @@
 package model
 
+// The raw metadata definition.
 type Metadata struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`

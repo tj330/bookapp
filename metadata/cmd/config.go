@@ -1,5 +1,7 @@
 package main
 
+// config struct consists of all the required configurations
+// required for the application.
 type config struct {
 	API              apiConfig              `yaml:"api"`
 	ServiceDiscovery serviceDiscoveryConfig `yaml:"serviceDiscovery"`
@@ -16,7 +18,7 @@ type serviceDiscoveryConfig struct {
 }
 
 type consulConfig struct {
-	Addr string `yaml:"address"`
+	Address string `yaml:"address"`
 }
 
 type jaegerConfig struct {

@@ -1,0 +1,46 @@
+name: CI Pipeline
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run integration tests
+        run: go test -v ./...
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Verify rating service build
+        working-directory: rating
+        run: go build -o rating ./cmd/*.go
+
+      - name: Verify metadata service build
+        working-directory: metadata
+        run: go build -o metadata ./cmd/*.go
+
+      - name: Verify book service build
+        working-directory: book
+        run: go build -o book ./cmd/*.go
+
+      - name: Verify auth service build
+        working-directory: auth
+        run: go build -o auth ./cmd/*.go
